@@ -21,3 +21,15 @@ export interface IPermission {
     value: string;
     module: string;
 }
+
+export type UtilityType = 'LIGHT' | 'NWSC';
+export interface IBillingChannel {
+  id: number;
+  utility: UtilityType;
+  name: string | null;
+  meterNumber: string;
+  isVerified: boolean;
+  area: string | null;
+  updatedAt: Date;
+  createdAt: Date;
+}

@@ -37,7 +37,7 @@ const TopNavBar: React.FC = () => {
   return (
     <header className="w-full h-16 bg-white flex items-center justify-between px-6">
       {/* System Name */}
-      <div className="text-xl font-bold text-gray-800">PBMS <span className="text-center text-sm">V 3.0.1</span></div>
+      <div className="text-xl font-bold text-gray-800">Restaurant Management System <span className="text-center text-sm">V 3.0.1</span></div>
 
       {/* User menu */}
       <div className="relative flex gap-2" ref={dropdownRef}>

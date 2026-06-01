@@ -35,7 +35,6 @@ const MetricCard = ({ title, value, change, icon, isPositive }) => {
 };
 
 const SalesDashboard = () => {
-  const [salesData, setSalesData] = useState([]);
   const [performanceData, setPerformanceData] = useState([]);
   const [revenueData, setRevenueData] = useState([]);
   const [metrics, setMetrics] = useState({});
@@ -48,7 +47,7 @@ const SalesDashboard = () => {
         if (res.status === 200 && res.data) {
           const data = res.data;
 
-          setSalesData(data.salesPointData || []);
+          // salesPointData removed - meals not attached to stores
           setRevenueData(data.weeklyRevenue || []);
           setPerformanceData(data.topSellingItems || []);
           setMetrics(data.metrics || {});
@@ -79,7 +78,7 @@ const SalesDashboard = () => {
       </header>
 
       {/* 🔹 Key Metrics */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6 mb-8">
         <MetricCard 
           title="Total Revenue(UGX)" 
           value={metrics.totalRevenue?.value}
@@ -87,13 +86,7 @@ const SalesDashboard = () => {
           icon={<FaDollarSign className="text-xl" />} 
           isPositive={metrics.totalRevenue?.isPositive}
         />
-        <MetricCard 
-          title="New Clients" 
-          value={metrics.newClients?.value}
-          change={metrics.newClients?.change}
-          icon={<FaUsers className="text-xl" />} 
-          isPositive={metrics.newClients?.isPositive}
-        />
+        
         <MetricCard 
           title="Daily Sales(UGX)" 
           value={metrics.dailySales?.value}
@@ -101,29 +94,30 @@ const SalesDashboard = () => {
           icon={<FaShoppingCart className="text-xl" />} 
           isPositive={metrics.dailySales?.isPositive}
         />
-        <MetricCard 
-          title="Top Store(UGX)" 
-          value={metrics.topStore?.totalSales}
-          change={0}
-          icon={<FaChartLine className="text-xl" />} 
-          isPositive={true}
-        />
+       
       </div>
 
-      {/* 🔹 Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Sales by Point */}
-        <div className="lg:col-span-2 bg-white rounded-xl p-6 shadow-md">
-          <h2 className="text-xl font-semibold text-gray-800 mb-6">Sales by Point of Sale</h2>
+      {/* 🔹 Charts - Revenue Trend & Top Items Side by Side */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+        {/* Revenue Trend */}
+        <div className="bg-white rounded-xl p-6 shadow-md">
+          <h2 className="text-xl font-semibold text-gray-800 mb-6">Revenue Trend (Last 7 Days)</h2>
           <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={salesData}>
+            <LineChart data={revenueData}>
               <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="name" />
+              <XAxis dataKey="day" />
               <YAxis />
-              <Tooltip formatter={(value) => [`UGX ${value}`, 'Sales']} />
+              <Tooltip formatter={(value) => [`UGX ${value}`, 'Revenue']} />
               <Legend />
-              <Bar dataKey="sales" fill="#374151" name="Sales (UGX)" />
-            </BarChart>
+              <Line 
+                type="monotone" 
+                dataKey="revenue" 
+                stroke="#374151" 
+                strokeWidth={2}
+                activeDot={{ r: 8 }} 
+                name="Revenue (UGX)"
+              />
+            </LineChart>
           </ResponsiveContainer>
         </div>
 
@@ -158,30 +152,6 @@ const SalesDashboard = () => {
               );
             })}
           </div>
-        </div>
-      </div>
-
-      {/* Revenue Trend + Activity Feed */}
-      <div className="grid grid-cols-1 lg:grid-cols-1 gap-6 mt-6">
-        <div className="lg:col-span-2 bg-white rounded-xl p-12 shadow-md">
-          <h2 className="text-xl font-semibold text-gray-800 mb-6">Revenue Trend (Last 7 Days)</h2>
-          <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={revenueData}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="day" />
-              <YAxis />
-              <Tooltip formatter={(value) => [`UGX ${value}`, 'Revenue']} />
-              <Legend />
-              <Line 
-                type="monotone" 
-                dataKey="revenue" 
-                stroke="#374151" 
-                strokeWidth={2}
-                activeDot={{ r: 8 }} 
-                name="Revenue (UGX)"
-              />
-            </LineChart>
-          </ResponsiveContainer>
         </div>
       </div>
     </div>

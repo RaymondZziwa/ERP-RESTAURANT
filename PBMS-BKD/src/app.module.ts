@@ -6,7 +6,6 @@ import { PrismaModule } from './prisma/prisma.module';
 import { RoleModule } from './roles/roles.module';
 import { CompanyModule } from './company-profile/profile.module';
 import { EventsModule } from './event/event.module';
-import { ClientModule } from './sales/customers/customer.module';
 import { ExhibitionModule } from './exhibition/exhibition.module';
 import { BankModule } from './chequeMgt/banks/bank.module';
 import { ChequeModule } from './chequeMgt/chequeMgt/chequeMgt.module';
@@ -18,10 +17,13 @@ import { BranchExpenseModule } from './expenses/expenses.module';
 import { PosModule } from './sales/pos/pos.module';
 import { ReportsModule } from './reports/reports.module';
 import { MassagePosModule } from './sales/massage/massagepos.module';
+import { MealPosModule } from './sales/meal/meal.module';
 import { FarmModule } from './farm/farm.module';
 import { ManufacturingModule } from './manufacturing/manufacturing.module';
 import { ScheduleModule } from '@nestjs/schedule';
 import { FinanceModule } from './finance/finance.module';
+import { ClientModule } from './sales/customers/customers.module';
+import { TablesModule } from './sales/tables/tables.module';
 @Module({
   imports: [
     ServeStaticModule.forRoot({
@@ -50,9 +52,11 @@ import { FinanceModule } from './finance/finance.module';
     PosModule,
     ReportsModule,
     MassagePosModule,
+    MealPosModule,
     FarmModule,
     ManufacturingModule,
     FinanceModule,
+    TablesModule,
   ],
 })
 export class AppModule {}

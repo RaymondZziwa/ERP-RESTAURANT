@@ -62,12 +62,17 @@ const BankTransferVerification: React.FC<BankTransferVerificationProps> = ({
 
     setIsLoading(true);
     try {
-      await apiRequest(
+      const response = await apiRequest(
         ChannelEndpoints.verifyBankTransfer(channel?.id),
-        'POST',
+        'GET',
         '',
         { bank_name, account_number }
       );
+
+      if (response.status === 400) {
+        toast.error(response.data.message || 'Verification failed');
+        return;
+      }
       //toast.success('Bank account verified successfully');
       onSuccess();
       onClose();
@@ -127,8 +132,10 @@ const BankTransferVerification: React.FC<BankTransferVerificationProps> = ({
 
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mt-4">
             <p className="text-xs text-blue-800">
-              <strong>Note:</strong> A small verification amount will be sent to this account. 
-              You'll need to confirm the amount received in the next step.
+              <strong>Note:</strong>
+              We are going to connect the respective bank servers for information verification.
+              This process may take a few seconds.
+              Please ensure the details you entered are correct to avoid verification failure.
             </p>
           </div>
 

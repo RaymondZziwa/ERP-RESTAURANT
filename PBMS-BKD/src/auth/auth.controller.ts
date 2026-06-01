@@ -12,7 +12,7 @@ import {
 } from '@nestjs/common';
 import type { Request, Response } from 'express';
 import { AuthService } from './auth.service';
-import { AuthDto } from 'src/dto/auth.dto';
+import { AuthDto, PinLoginDto } from 'src/dto/auth.dto';
 import { JwtAuthGuard } from 'src/guards/authGuard.guard';
 import { RefreshAuthGuard } from 'src/guards/refreshTokenGuard.guard';
 
@@ -35,6 +35,59 @@ declare module 'express' {
 @Controller('api/auth')
 export class AuthController {
   constructor(private authService: AuthService) {}
+
+  @HttpCode(200)
+  @Post('pin-login')
+  async pinLogin(
+    @Body() loginDto: PinLoginDto,
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    console.log(loginDto);
+    const authResult = await this.authService.pinLogin(loginDto);
+    const { token, ...userData } = authResult;
+
+    const forwardedProto = req.headers['x-forwarded-proto'];
+    const isForwardedHttps =
+      typeof forwardedProto === 'string'
+        ? forwardedProto.includes('https')
+        : false;
+
+    const origin = req.headers.origin;
+    const isHttpsOrigin =
+      typeof origin === 'string' ? origin.startsWith('https://') : false;
+
+    const isHttpsRequest = req.secure || isForwardedHttps;
+    const useCrossSiteCookies = [
+      isHttpsRequest,
+      process.env.NODE_ENV === 'production',
+      isHttpsOrigin,
+    ].some(Boolean);
+
+    const sameSite: 'none' | 'lax' = useCrossSiteCookies ? 'none' : 'lax';
+    const cookieOptions = {
+      httpOnly: true,
+      secure: useCrossSiteCookies,
+      sameSite,
+    };
+
+    // Set HTTP-only cookies
+    res.cookie('accessToken', token.accessToken, {
+      ...cookieOptions,
+      maxAge: 86400000, // 1 day
+    });
+
+    res.cookie('refreshToken', token.refreshToken, {
+      ...cookieOptions,
+      maxAge: 7 * 86400000, // 7 days
+    });
+
+    // Remove tokens from the response since they're in cookies
+    return {
+      message: 'Login successful',
+      user: userData,
+    };
+  }
 
   @HttpCode(200)
   @Post('login')
@@ -110,9 +163,7 @@ export class AuthController {
 
     const isHttpsRequest = req.secure || isForwardedHttps;
     const useCrossSiteCookies =
-      isHttpsRequest ||
-      process.env.NODE_ENV === 'production' ||
-      isHttpsOrigin;
+      isHttpsRequest || process.env.NODE_ENV === 'production' || isHttpsOrigin;
 
     const sameSite: 'none' | 'lax' = useCrossSiteCookies ? 'none' : 'lax';
     const cookieOptions = {
@@ -202,9 +253,7 @@ export class AuthController {
 
     const isHttpsRequest = req.secure || isForwardedHttps;
     const useCrossSiteCookies =
-      isHttpsRequest
-      || process.env.NODE_ENV === 'production'
-      || isHttpsOrigin;
+      isHttpsRequest || process.env.NODE_ENV === 'production' || isHttpsOrigin;
 
     const sameSite: 'none' | 'lax' = useCrossSiteCookies ? 'none' : 'lax';
     const cookieOptions = {
@@ -247,8 +296,7 @@ export class AuthController {
 
     const isHttpsRequest = req.secure || isForwardedHttps;
     const useCrossSiteCookies =
-      isHttpsRequest || process.env.NODE_ENV === 'production' ||
-      isHttpsOrigin;
+      isHttpsRequest || process.env.NODE_ENV === 'production' || isHttpsOrigin;
 
     const sameSite: 'none' | 'lax' = useCrossSiteCookies ? 'none' : 'lax';
     const cookieOptions = {

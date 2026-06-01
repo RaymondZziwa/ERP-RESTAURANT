@@ -84,26 +84,33 @@ const NonAdminDashboard: React.FC = () => {
   const [payload, setPayload] = useState<EmployeeMetricsResponse | null>(null);
 
   const fetchEmployeeMetrics = useCallback(async () => {
+    // Employee metrics endpoint is disabled - focus on mealSale-specific dashboard
     setLoading(true);
-    setError("");
-    try {
-      const query = new URLSearchParams();
-      if (branchId) query.set("branchId", String(branchId));
-      query.set("salesDays", "7");
-      query.set("expenseDays", "30");
-
-      const endpoint = query.toString()
-        ? `/api/dashboard/employee-metrics?${query.toString()}`
-        : "/api/dashboard/employee-metrics";
-
-      const res = await apiRequest<EmployeeMetricsResponse>(endpoint, "GET");
-      setPayload(res);
-    } catch (e) {
-      setPayload(null);
-      setError(e instanceof Error ? e.message : "Failed to load dashboard");
-    } finally {
-      setLoading(false);
-    }
+    setError("Employee metrics dashboard is currently disabled. Please use the main dashboard.");
+    setPayload(null);
+    setLoading(false);
+    
+    // Original code (commented out):
+    // setLoading(true);
+    // setError("");
+    // try {
+    //   const query = new URLSearchParams();
+    //   if (branchId) query.set("branchId", String(branchId));
+    //   query.set("salesDays", "7");
+    //   query.set("expenseDays", "30");
+    //
+    //   const endpoint = query.toString()
+    //     ? `/api/dashboard/employee-metrics?${query.toString()}`
+    //     : "/api/dashboard/employee-metrics";
+    //
+    //   const res = await apiRequest<EmployeeMetricsResponse>(endpoint, "GET");
+    //   setPayload(res);
+    // } catch (e) {
+    //   setPayload(null);
+    //   setError(e instanceof Error ? e.message : "Failed to load dashboard");
+    // } finally {
+    //   setLoading(false);
+    // }
   }, [branchId]);
 
   useEffect(() => {

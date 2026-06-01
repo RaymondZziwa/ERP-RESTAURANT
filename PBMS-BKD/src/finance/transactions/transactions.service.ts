@@ -6,6 +6,7 @@ import { GenericResponse } from 'src/utils/genericResponse';
 import { WithdrawToBankDto } from './dtos/transferToBank.dto';
 import { firstValueFrom } from 'rxjs';
 import { IWebhookCallback } from './types';
+import { MobileMoneyPaymentDto } from './dtos/sendMomo.dto';
 
 @Injectable()
 export class TransactionService {
@@ -110,22 +111,32 @@ export class TransactionService {
         },
       ),
     );
-    //console.log('Marz transfer response:', response.data.data);
+
+    //complete the transfer , deduct the amount from the wallet balance --move to the check status function before deployment
+    await this.prismaService.wallet.update({
+      where: { id: data.internalWalletId },
+      data: {
+        balance: {
+          decrement: Number(data.amount) || 0,
+        },
+      },
+    });
+    console.log('Marz transfer response:', response.data);
+
     //create the transfer transaction record in the database with status pending
-    // const transaction = await this.prismaService.withdrawHistory.create({
-    //   data: {
-    //     amount: data.amount,
-    //     description: data.description,
-    //     channelId: data.channelId,
-    //     status: 'PENDING',
-    //     reference: reference,
-    //     currency: 'UGX',
-    //   },
-    // });
+    const transaction = await this.prismaService.withdrawHistory.create({
+      data: {
+        amount: data.amount,
+        walletId: data.internalWalletId,
+        description: data.description,
+        channelId: data.channelId,
+        status: 'PENDING',
+        reference: response.data.data.bank_transfer.reference,
+      },
+    });
     return {
       status: 200,
-      data: null,
-      //data: transaction,
+      data: transaction,
       message: 'Transaction created successfully',
     };
   }
@@ -133,7 +144,7 @@ export class TransactionService {
   async checkPaymentStatus(reference: { reference: string }) {
     //call the marz api to check the transfer status using the reference id
     const payment =
-      await this.prismaService.salePaymentTransactionHistory.findUnique({
+      await this.prismaService.mealSalePaymentTransactionHistory.findUnique({
         where: { transaction_reference: reference.reference },
       });
     if (!payment) {
@@ -194,24 +205,33 @@ export class TransactionService {
           ? 'FAILED'
           : 'PENDING';
 
-    const salePayment = await this.prismaService.salePayments.findFirst({
+    const salePayment = await this.prismaService.mealSalePayments.findFirst({
       where: { referenceId: reference },
     });
+
+    const providerFeeRate = 0.07;
+    const providerFee = salePayment
+      ? parseFloat(salePayment?.amount.toString()) * providerFeeRate
+      : 0;
+    const merchantAmount = salePayment
+      ? parseFloat(salePayment?.amount.toString()) - providerFee
+      : 0;
 
     const salesWallet = await this.prismaService.wallet.findFirst({
       where: { isForSales: true },
     });
 
-    const sale = await this.prismaService.sale.findUnique({
-      where: { id: salePayment?.saleId },
+    const sale = await this.prismaService.mealSale.findUnique({
+      where: { id: salePayment?.mealSaleId },
     });
 
     //Update the transaction record in the database with the new status
-    await this.prismaService.salePaymentTransactionHistory.updateMany({
+    await this.prismaService.mealSalePaymentTransactionHistory.updateMany({
       where: { transaction_reference: reference },
       data: {
         status: newStatus,
         transaction_completed_at: new Date(),
+        provider_transaction_id: data?.collection?.provider_transaction_id,
       },
     });
     if (paymentStatus.toLowerCase() === 'completed') {
@@ -224,28 +244,28 @@ export class TransactionService {
         where: { id: salesWallet.id },
         data: {
           balance: {
-            increment: Number(salePayment?.amount) || 0,
+            increment: Number(merchantAmount) || 0,
           },
         },
       });
 
-      await this.prismaService.sale.update({
-        where: { id: salePayment?.saleId },
+      await this.prismaService.mealSale.update({
+        where: { id: salePayment?.mealSaleId },
         data: {
-          saleStatus: 'SUCCESSFUL',
+          saleStatus: 'COMPLETE',
         },
       });
 
-      if (sale) {
-        //complete the sale , deduct stock
-        const saleItems = JSON.parse(JSON.stringify(sale.items));
-        await this.deductStockForSale(sale.id, sale?.storeId, saleItems);
-      }
+      // if (sale) {
+      //   //complete the sale , deduct stock
+      //   const saleItems = JSON.parse(JSON.stringify(sale.items));
+      //   //await this.deductStockForSale(sale.id, sale?.storeId, saleItems);
+      // }
     } else {
-      await this.prismaService.sale.update({
-        where: { id: salePayment?.saleId },
+      await this.prismaService.mealSale.update({
+        where: { id: salePayment?.mealSaleId },
         data: {
-          saleStatus: 'FAILED',
+          saleStatus: 'CANCELLED',
         },
       });
     }
@@ -263,7 +283,7 @@ export class TransactionService {
 
   async allTransactions(): Promise<GenericResponse> {
     const transactions =
-      await this.prismaService.salePaymentTransactionHistory.findMany({
+      await this.prismaService.mealSalePaymentTransactionHistory.findMany({
         orderBy: {
           created_at: 'desc',
         },
@@ -281,6 +301,96 @@ export class TransactionService {
       status: 200,
       data: transactions,
       message: 'Transactions fetched successfully',
+    };
+  }
+
+  async checkBankTransferStatus(reference: { reference: string }) {
+    const transfer = await this.prismaService.withdrawHistory.findUnique({
+      where: { reference: reference.reference },
+    });
+    if (!transfer) {
+      return {
+        status: 404,
+        data: null,
+        message: 'Transfer transaction not found',
+      };
+    }
+
+    const authHeader = this.configService.get<string>('MARZ_AUTH_HEADER');
+
+    //get them from the withdraw request response
+    const response = await firstValueFrom(
+      this.httpService.get(
+        `https://wallet.wearemarz.com/api/bank-transfer/${reference.reference}`,
+        {
+          headers: {
+            Authorization: `Basic ${authHeader}`,
+            'Content-Type': 'application/json',
+          },
+        },
+      ),
+    );
+
+    console.log('Marz bank transfer status response:', response.data);
+
+    if (response.data.status.toLowerCase() === 'success') {
+      await this.prismaService.withdrawHistory.update({
+        where: { reference: reference.reference },
+        data: {
+          status: 'COMPLETED',
+          transaction_completed_at: new Date(),
+        },
+      });
+
+      await this.prismaService.wallet.update({
+        where: { id: transfer.walletId },
+        data: {
+          balance: {
+            decrement: Number(transfer.amount) || 0,
+          },
+        },
+      });
+    }
+    return {
+      status: 200,
+      data: {
+        status: transfer.status,
+      },
+      message: 'Transfer status fetched successfully',
+    };
+  }
+
+  async sendMoneyToPersonViaMomo(data: MobileMoneyPaymentDto) {
+    const authHeader = this.configService.get<string>('MARZ_AUTH_HEADER');
+
+    const payload = {
+      amount: data.amount,
+      phone_number: data.phone_number,
+      country: data.country,
+      reference: data.reference,
+      description: data.description,
+      callback_url: this.configService.getOrThrow<string>('MARZ_CALLBACK_URL'),
+    };
+
+    const response = await firstValueFrom(
+      this.httpService.post(
+        this.configService.getOrThrow<string>('MARZ_MOMO_PAYMENT_URL'),
+        payload,
+        {
+          headers: {
+            Authorization: `Basic ${authHeader}`,
+            'Content-Type': 'application/json',
+          },
+        },
+      ),
+    );
+
+    console.log('Marz mobile money payment response:', response.data);
+
+    return {
+      status: 200,
+      data: response.data,
+      message: 'Mobile money payment initiated successfully',
     };
   }
 }

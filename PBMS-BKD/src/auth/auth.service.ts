@@ -5,7 +5,7 @@ import {
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
-import { AuthDto } from 'src/dto/auth.dto';
+import { AuthDto, PinLoginDto } from 'src/dto/auth.dto';
 import { PrismaService } from 'src/prisma/prisma.service';
 import * as bcrypt from 'bcrypt';
 import { JwtService } from '@nestjs/jwt';
@@ -24,6 +24,111 @@ export class AuthService {
     private readonly configService: ConfigService,
   ) {}
 
+  async pinLogin(data: PinLoginDto): Promise<IUserAuthWithoutPassword> {
+    const { pin } = data;
+    const accessTokenExpiry = '1d';
+    const refreshTokenExpiry = '7d';
+
+    try {
+      // Find all active employees (consider caching this)
+      const employees = await this.prismaService.employee.findMany({
+        where: {
+          hasAccess: true,
+          isActive: true,
+        },
+        include: {
+          branch: { select: { id: true, name: true } },
+          dept: { select: { id: true, name: true } },
+          role: { select: { id: true, name: true, permissions: true } },
+        },
+      });
+
+      // Find the employee with matching PIN
+      let foundUser: IUserAuthWithoutToken | null = null;
+      for (const employee of employees) {
+        const isValid = await bcrypt.compare(pin, employee.pin || '');
+        if (isValid) {
+          foundUser = employee ? employee : null;
+          break;
+        }
+      }
+
+      if (!foundUser) {
+        throw new UnauthorizedException('Invalid PIN');
+      }
+
+      // Generate tokens
+      const payload = {
+        sub: foundUser.id,
+        email: foundUser.email,
+        lastName: foundUser.lastName,
+      };
+
+      const [accessToken, refreshToken] = await Promise.all([
+        this.jwtService.signAsync(payload, {
+          secret:
+            this.configService.get<string>('JWT_SECRET') || 'fallback-secret',
+          expiresIn: accessTokenExpiry,
+        }),
+        this.jwtService.signAsync(payload, {
+          secret:
+            this.configService.get<string>('JWT_REFRESH_SECRET') ||
+            'fallback-refresh-secret',
+          expiresIn: refreshTokenExpiry,
+        }),
+      ]);
+
+      return {
+        id: foundUser.id,
+        firstName: foundUser.firstName,
+        lastName: foundUser.lastName,
+        gender: foundUser.gender,
+        email: foundUser.email,
+        salary: foundUser.salary,
+        tel: foundUser.tel,
+        pin: foundUser.pin,
+        hasAccess: foundUser.hasAccess,
+        hasPrescriptionAccess: foundUser.hasPrescriptionAccess,
+        isActive: foundUser.isActive,
+        profileImage: foundUser.profileImage || '',
+        updatedAt: foundUser.updatedAt,
+        createdAt: foundUser.createdAt,
+        role: foundUser.role
+          ? {
+              id: Number(foundUser.role.id),
+              name: foundUser.role.name,
+              permissions: foundUser.role.permissions,
+            }
+          : null,
+        branch: foundUser.branch
+          ? {
+              id: Number(foundUser.branch.id),
+              name: foundUser.branch.name,
+            }
+          : null,
+        dept: foundUser.dept
+          ? {
+              id: Number(foundUser.dept.id),
+              name: foundUser.dept.name,
+            }
+          : null,
+        token: { accessToken, refreshToken },
+      };
+    } catch (error: unknown) {
+      console.log('Pin login error:', error);
+
+      if (
+        error instanceof UnauthorizedException ||
+        error instanceof ForbiddenException ||
+        error instanceof NotFoundException
+      ) {
+        throw error;
+      }
+
+      console.error('Login error:', error);
+      throw new InternalServerErrorException('Authentication error');
+    }
+  }
   async login(data: AuthDto): Promise<IUserAuthWithoutPassword> {
     const { loginMethod, email: identifier, password, rememberMe } = data;
     const accessTokenExpiry = rememberMe ? '7d' : '1d';
@@ -97,6 +202,7 @@ export class AuthService {
         email: user.email,
         salary: user.salary,
         tel: user.tel,
+        pin: user.pin,
         hasAccess: user.hasAccess,
         hasPrescriptionAccess: user.hasPrescriptionAccess,
         isActive: user.isActive,
@@ -208,7 +314,8 @@ export class AuthService {
 
       const [accessToken, refreshToken] = await Promise.all([
         this.jwtService.signAsync(payload, {
-          secret: this.configService.get<string>('JWT_SECRET') || 'fallback-secret',
+          secret:
+            this.configService.get<string>('JWT_SECRET') || 'fallback-secret',
           expiresIn: accessTokenExpiry,
         }),
         this.jwtService.signAsync(payload, {
@@ -226,6 +333,7 @@ export class AuthService {
         gender: user.gender,
         email: user.email,
         salary: user.salary,
+        pin: user.pin,
         tel: user.tel,
         hasAccess: user.hasAccess,
         hasPrescriptionAccess: user.hasPrescriptionAccess,

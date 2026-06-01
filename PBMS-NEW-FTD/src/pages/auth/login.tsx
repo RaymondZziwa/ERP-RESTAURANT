@@ -112,7 +112,7 @@ const handleSubmit = async (e: React.FormEvent) => {
         {/* Header */}
         <div className="text-center flex flex-col items-center">
           <div className="w-full max-w-md bg-gray-700 rounded-xl flex items-center justify-center p-4 shadow-lg mb-6">
-            <span className="text-white font-bold text-md tracking-wide">{ system === "PBMS" ? 'Prof Bioresearch Management System' : 'DEIN COMPANY LTD'}</span>
+            <span className="text-white font-bold text-md tracking-wide">{ system === "PBMS" ? 'Restaurant Manager' : 'DEIN COMPANY LTD'}</span>
           </div>
           
           <div className="bg-white rounded-2xl p-8 border border-gray-200 shadow-sm w-full">
@@ -295,7 +295,7 @@ const handleSubmit = async (e: React.FormEvent) => {
         {/* Footer */}
         <div className="text-center">
           <p className="text-xs text-gray-500">
-            © {new Date().getFullYear()} { system === "PBMS" ? 'Prof Bioresearch' : 'DEIN COMPANY LTD'}. All rights reserved.
+            © {new Date().getFullYear()} { system === "PBMS" ? 'Restaurant Manager' : 'DEIN COMPANY LTD'}. All rights reserved.
           </p>
         </div>
       </div>

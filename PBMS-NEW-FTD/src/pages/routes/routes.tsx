@@ -59,12 +59,12 @@ import { FinanceRoutes } from './financeRoutes';
         routes: InventoryRoutes,
         requiredPermission: "access_inventory_module"
     },
-      {
-        name: "Manufacturing",
-        icon: FaIndustry,
-        routes: ManufacturingRoutes,
-        requiredPermission: "manage_manufacturing"
-      },
+      // {
+      //   name: "Manufacturing",
+      //   icon: FaIndustry,
+      //   routes: ManufacturingRoutes,
+      //   requiredPermission: "manage_manufacturing"
+      // },
       // {
       //   name: "Requisitions",
       //   icon: FaClipboardList,
@@ -89,13 +89,13 @@ import { FinanceRoutes } from './financeRoutes';
         routes: SalesRoutes,
         requiredPermission: "access_sales_module"
     },
-     {
-        name: "PB Prescription Database",
-        icon: FaUserInjured,
-        path: "/client-prescriptions",
-       routes: [],
-       requiredPermission: "prescription_database_module"
-    },
+    //  {
+    //     name: "PB Prescription Database",
+    //     icon: FaUserInjured,
+    //     path: "/client-prescriptions",
+    //    routes: [],
+    //    requiredPermission: "prescription_database_module"
+    // },
       {
         name: "Expenses",
         icon: FaReceipt,
@@ -108,18 +108,18 @@ import { FinanceRoutes } from './financeRoutes';
         routes: FinanceRoutes,
         //requiredPermission: "access_finance_module"
       },
-      {
-        name: "Farm",
-        icon: FaSeedling,
-        routes: FarmRoutes,
-        requiredPermission: "access_farm_module"
-      },
-      {
-        name: "Projects",
-        icon: FaProjectDiagram,
-        routes: ProjectsRoutes,
-        requiredPermission: "access_project_module"
-      },
+      // {
+      //   name: "Farm",
+      //   icon: FaSeedling,
+      //   routes: FarmRoutes,
+      //   requiredPermission: "access_farm_module"
+      // },
+      // {
+      //   name: "Projects",
+      //   icon: FaProjectDiagram,
+      //   routes: ProjectsRoutes,
+      //   requiredPermission: "access_project_module"
+      // },
     {
       name: "Human Resource",
       icon: FaUsers,
@@ -139,17 +139,17 @@ import { FinanceRoutes } from './financeRoutes';
     //   routes: ChequeManagementRoutes,
     //   requiredPermission: "access_cheque_management_module"
     // },
-    {
-      name: "Exhibition",
-      icon: FaPalette,
-      routes: ExhibitionRoutes,
-      requiredPermission: "access_exhibition_module"
-    },
-    {
-      name: "Archives (Legacy Data)",
-      icon: FaArchive,
-      routes: ArchiveRoutes,
-    },
+    // {
+    //   name: "Exhibition",
+    //   icon: FaPalette,
+    //   routes: ExhibitionRoutes,
+    //   requiredPermission: "access_exhibition_module"
+    // },
+    // {
+    //   name: "Archives (Legacy Data)",
+    //   icon: FaArchive,
+    //   routes: ArchiveRoutes,
+    // },
    
     // {
     //   name: "Event Ticket",

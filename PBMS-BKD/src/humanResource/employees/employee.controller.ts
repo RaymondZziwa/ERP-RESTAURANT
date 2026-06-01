@@ -107,4 +107,9 @@ export class EmployeeController {
   disableEmployeeAccount(@Param('id') id: string) {
     return this.employeeService.disableAccount(Number(id));
   }
+
+  @Post('set-pin/:id')
+  setEmployeePin(@Param('id') id: string, @Body() { pin }: { pin: string }) {
+    return this.employeeService.setEmployeePin(Number(id), pin);
+  }
 }

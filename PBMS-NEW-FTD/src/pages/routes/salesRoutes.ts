@@ -5,9 +5,12 @@
 // ]
 
 export const SalesRoutes = [
-    { name: "POS", path: "/sales/pos" },
-     { name: "Massage Service POS", path: "/sales/service-pos" },
-    { name: "Credit Sales", path: "/sales/credit-sales" },
-     { name: "Client Purchases", path: "/sales/client-purchases" },
+    //{ name: "POS", path: "/sales/pos" },
+     //{ name: "Massage Service POS", path: "/sales/service-pos" },
+    // { name: "Credit Sales", path: "/sales/credit-sales" },
+    //  { name: "Client Purchases", path: "/sales/client-purchases" },
     { name: "Customers", path: "/sales/customers" },
+    { name: "Tables", path: "/sales/tables" },
+    { name: "Pending Orders", path: "/sales/pending-orders" },
+    { name: "Order History", path: "/sales/order-history" },
 ]

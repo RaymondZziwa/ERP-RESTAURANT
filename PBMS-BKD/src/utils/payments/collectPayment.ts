@@ -16,6 +16,7 @@ export async function collectPayment(
   configService: ConfigService,
   body: CollectPaymentPayload,
 ) {
+  console.log('body', body);
   const payload = {
     amount: body.amount,
     //method: body.method,

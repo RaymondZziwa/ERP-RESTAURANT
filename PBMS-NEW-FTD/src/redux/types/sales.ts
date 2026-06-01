@@ -193,3 +193,44 @@ export interface ProjectSalesState {
   loading: boolean;
   error: string | null;
 }
+
+export interface IBill {
+  id: number;
+  tableId: number;
+  items: OrderItem[];
+  servedBy: number;
+  saleStatus: string; // "COMPLETE", "PENDING", "PROCESSING", etc.
+  status: "FULLY_PAID" | "PARTIALLY_PAID" | "UNPAID";
+  total: string | number;
+  balance: string | number;
+  paymentMethod: string | null;
+  notes: string;
+  isReceiptPrinted: boolean;
+  updatedAt: string;
+  createdAt: string;
+  table?: {
+    id: number;
+    number: number;
+    status: string;
+    updatedAt: string;
+    createdAt: string;
+  };
+  SalePayments?: Array<{
+    id: number;
+    amount: string | number;
+    paymentMethod: string;
+    referenceId: string;
+    notes: string;
+    cashierId: number;
+    updatedAt: string;
+    createdAt: string;
+    mealSaleId: number;
+  }>;
+}
+
+export interface OrderItem {
+  menuItemId: number;
+  name: string;
+  quantity: number;
+  price: number;
+}

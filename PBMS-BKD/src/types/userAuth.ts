@@ -14,6 +14,7 @@ export interface IUserAuth {
   tel: string;
   salary: any;
   password: string;
+  pin: string | null;
   hasAccess: boolean;
   hasPrescriptionAccess: boolean;
   isActive: boolean;

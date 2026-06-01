@@ -212,4 +212,39 @@ export class EmployeeService {
       message: 'Employee Account disabled successfully',
     };
   }
+
+  // In your employee service/controller
+
+  async setEmployeePin(id: number, pin: string) {
+    await this.findOne(id);
+
+    // CHECK UNIQUENESS - ensure no other employee has this PIN
+    const existingEmployeeWithPin = await this.prisma.employee.findFirst({
+      where: {
+        password: await this.hashPassword(pin), // Hash first then compare
+        id: { not: id }, // Exclude current employee
+      },
+    });
+
+    if (existingEmployeeWithPin) {
+      return {
+        status: 400,
+        data: [],
+        message:
+          'This PIN is already assigned to another employee. Please use a different PIN.',
+      };
+    }
+
+    const hashedPin = await this.hashPassword(pin);
+    await this.prisma.employee.update({
+      where: { id },
+      data: { pin: hashedPin },
+    });
+
+    return {
+      status: 200,
+      data: [],
+      message: 'Employee PIN set successfully',
+    };
+  }
 }

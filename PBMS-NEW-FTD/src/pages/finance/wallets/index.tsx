@@ -11,6 +11,7 @@ import { WalletEndpoints } from '../../../endpoints/finance/FinanceEndpoints';
 import { FaEdit } from 'react-icons/fa';
 import AddOrModifyWallet from './AddorModify';
 import WithdrawModal from './withdrawModal';
+import SendMoneyModal from './SendMoneyModal';
 
 interface IWallet {
   id: number;
@@ -33,6 +34,22 @@ const WalletTable: React.FC = () => {
   const [withdrawModalOpen, setWithdrawModalOpen] = useState<boolean>(false);
   const [isToggling, setIsToggling] = useState<boolean>(false);
   const [togglingWalletId, setTogglingWalletId] = useState<number | null>(null);
+  const [sendMoneyModalOpen, setSendMoneyModalOpen] = useState<boolean>(false);
+
+  const handleSendMoney = (wallet: IWallet) => {
+  const balance = typeof wallet.balance === 'string' ? parseFloat(wallet.balance) : wallet.balance;
+  const minSendAmount = 500;
+  
+  if (balance < minSendAmount) {
+    toast.error(`Minimum send amount is UGX ${minSendAmount.toLocaleString()}. Current balance: UGX ${balance.toLocaleString()}`);
+    return;
+  }
+  
+  setSelectedWallet(wallet);
+  setSendMoneyModalOpen(true);
+    
+
+};
 
   const deleteWallet = async () => {
     if (!selectedWallet) return;
@@ -200,6 +217,23 @@ const WalletTable: React.FC = () => {
               </span>
             </div>
 
+            <div className="relative group">
+              <button
+                className={`transition-colors ${
+                  canWithdraw 
+                    ? 'text-green-600 hover:text-green-800' 
+                    : 'text-gray-400 cursor-not-allowed'
+                }`}
+                onClick={() => handleSendMoney(row)}
+                disabled={!canWithdraw}
+              >
+                <FaMoneyBillWave className="transform rotate-90" />
+              </button>
+              <span className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10">
+                {canWithdraw ? 'Send Money' : `Minimum send: UGX 500`}
+              </span>
+            </div>
+
             {/* Edit Button - Only show if canBeDeleted is true */}
             {row.canBeDeleted && (
               <div className="relative group">
@@ -301,6 +335,20 @@ const WalletTable: React.FC = () => {
         onConfirm={deleteWallet}
         title="Delete Wallet"
         message={`Are you sure you want to delete ${selectedWallet?.name}? This action cannot be undone.`}
+      />
+
+      <SendMoneyModal
+        visible={sendMoneyModalOpen}
+        wallet={selectedWallet}
+        onClose={() => {
+          setSendMoneyModalOpen(false);
+          setSelectedWallet(null);
+        }}
+        onSuccess={() => {
+          refresh();
+          setSendMoneyModalOpen(false);
+          setSelectedWallet(null);
+        }}
       />
     </div>
   );

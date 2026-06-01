@@ -33,3 +33,34 @@ export interface IWallet {
 //   Withdraw?: Withdraw[];
 //   Event?: Event[];
 }
+
+export interface ITransaction {
+  id: number;
+  salePaymentId: number;
+  transaction_uuid: string;
+  transaction_reference: string;
+  provider_transaction_id?: string;
+  amount: string | number;
+  amount_formatted?: string;
+  currency: string;
+  payment_method: string;
+  provider: string;
+  provider_mode?: string;
+  phone_number: string;
+  status: 'COMPLETED' | 'FAILED' | 'PENDING' | 'PROCESSING';
+  event_type?: string | null;
+  description: string;
+  notes?: string;
+  cashierId: number;
+  webhook_received_at: string;
+  webhook_payload?: unknown;
+  transaction_initiated_at: string;
+  transaction_completed_at?: string | null;
+  created_at: string;
+  updated_at: string;
+  employee: {
+    id: number;
+    firstName: string;
+    lastName: string;
+  };
+}

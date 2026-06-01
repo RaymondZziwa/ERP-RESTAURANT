@@ -60,6 +60,11 @@ import ArchiveSalesRecords from './pages/archives/sales';
 import ArchiveExpenseRecords from './pages/archives/expenses';
 import ChannelTable from './pages/finance/channels';
 import WalletTable from './pages/finance/wallets';
+import TransactionsTable from './pages/finance/transactions';
+import BillingChannelsManagement from './pages/settings/billingChannels';
+import TableManagement from './pages/sales/tables';
+import OrderHistory from './pages/sales/mealOrders/orderHistory';
+import PendingOrders from './pages/sales/mealOrders/pendingOrders';
 
 // Protected Route Component
 interface ProtectedRouteProps {
@@ -608,7 +613,47 @@ function App() {
           </ProtectedRoute>
         }
       />
+      <Route
+        path="/transactions"
+        element={
+          <ProtectedRoute>
+            <TransactionsTable />
+          </ProtectedRoute>
+        }
+      />
+       <Route
+        path="/settings/billing-channels"
+        element={
+          <ProtectedRoute>
+            <BillingChannelsManagement />
+          </ProtectedRoute>
+        }
+      />
 
+       <Route
+        path="/sales/tables"
+        element={
+          <ProtectedRoute>
+            <TableManagement />
+          </ProtectedRoute>
+        }
+      />
+       <Route
+        path="/sales/order-history"
+        element={
+          <ProtectedRoute>
+            <OrderHistory />
+          </ProtectedRoute>
+        }
+      />
+       <Route
+        path="/sales/pending-orders"
+        element={
+          <ProtectedRoute>
+            <PendingOrders />
+          </ProtectedRoute>
+        }
+      />
       {/* Catch all route - redirect to dashboard */}
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>

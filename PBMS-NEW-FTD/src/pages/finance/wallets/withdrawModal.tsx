@@ -1,6 +1,15 @@
 // WithdrawModal.tsx
 import React, { useState, useEffect } from 'react';
 import { toast } from 'sonner';
+import { 
+  Loader2, 
+  CheckCircle, 
+  Clock, 
+  Banknote, 
+  Building2, 
+
+  Check
+} from 'lucide-react';
 import CustomButton from '../../../custom/buttons/customButton';
 import CustomDropdown from '../../../custom/inputs/customDropdown';
 import CustomTextInput from '../../../custom/inputs/customTextInput';
@@ -31,6 +40,38 @@ interface WithdrawModalProps {
 
 type WithdrawType = 'MOBILE_MONEY' | 'BANK_TRANSFER' | '';
 
+interface StatusStep {
+  id: string;
+  title: string;
+  description: string;
+  status: 'pending' | 'processing' | 'completed' | 'failed';
+  icon: React.ReactNode;
+}
+
+interface BankTransferStatus {
+  status: string;
+  data: {
+    bank_transfer_request: {
+      id: number;
+      reference: string;
+      amount: { formatted: string; raw: number; currency: string };
+      charge_amount: { formatted: string; raw: number; currency: string };
+      total_amount: { formatted: string; raw: number; currency: string };
+      description: string;
+      status: 'processing' | 'completed' | 'failed' | 'pending';
+      bank_details: {
+        bank_name: string;
+        account_name: string;
+        account_number: string;
+        branch: string;
+      };
+      balance: { current: string; after_transaction: string };
+      timeline: { created_at: string; approved_at: string | null; rejected_at: string | null };
+      provider: { transaction_id: string; status_code: string; status_description: string };
+    };
+  };
+}
+
 const WithdrawModal: React.FC<WithdrawModalProps> = ({
   visible,
   wallet,
@@ -44,6 +85,42 @@ const WithdrawModal: React.FC<WithdrawModalProps> = ({
   const [description, setDescription] = useState<string>('');
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [availableChannels, setAvailableChannels] = useState<IChannel[]>([]);
+  const [showStatusModal, setShowStatusModal] = useState<boolean>(false);
+  const [pollingInterval, setPollingInterval] = useState<NodeJS.Timeout | null>(null);
+  const [transactionReference, setTransactionReference] = useState<string>('');
+  const [currentStep, setCurrentStep] = useState<number>(0);
+
+  // Status steps configuration
+  const statusSteps: StatusStep[] = [
+    {
+      id: 'submitted',
+      title: 'Request Submitted',
+      description: 'Your withdrawal request has been received',
+      status: 'pending',
+      icon: <Clock className="h-5 w-5" />,
+    },
+    {
+      id: 'processing',
+      title: 'Processing',
+      description: 'Verifying transaction details',
+      status: 'pending',
+      icon: <Loader2 className="h-5 w-5" />,
+    },
+    {
+      id: 'bank_processing',
+      title: 'Bank Processing',
+      description: 'Awaiting confirmation from bank',
+      status: 'pending',
+      icon: <Building2 className="h-5 w-5" />,
+    },
+    {
+      id: 'completed',
+      title: 'Completed',
+      description: 'Withdrawal successful!',
+      status: 'pending',
+      icon: <CheckCircle className="h-5 w-5" />,
+    },
+  ];
 
   // Filter channels based on selected withdraw type
   useEffect(() => {
@@ -57,7 +134,6 @@ const WithdrawModal: React.FC<WithdrawModalProps> = ({
     } else {
       setAvailableChannels([]);
     }
-    // Reset selected channel when type changes
     setSelectedChannel('');
   }, [withdrawType, allChannels]);
 
@@ -68,8 +144,23 @@ const WithdrawModal: React.FC<WithdrawModalProps> = ({
       setSelectedChannel('');
       setAmount('');
       setDescription('');
+      setShowStatusModal(false);
+      setCurrentStep(0);
+      if (pollingInterval) {
+        clearInterval(pollingInterval);
+        setPollingInterval(null);
+      }
     }
   }, [visible]);
+
+  // Cleanup polling on unmount
+  useEffect(() => {
+    return () => {
+      if (pollingInterval) {
+        clearInterval(pollingInterval);
+      }
+    };
+  }, [pollingInterval]);
 
   const getWalletBalance = (): number => {
     if (!wallet) return 0;
@@ -77,25 +168,16 @@ const WithdrawModal: React.FC<WithdrawModalProps> = ({
   };
 
   const handleAmountChange = (value: string) => {
-    // Remove any non-numeric characters except decimal point
     let cleaned = value.replace(/[^0-9.]/g, '');
-    
-    // Prevent multiple decimal points
     const decimalCount = (cleaned.match(/\./g) || []).length;
-    if (decimalCount > 1) {
-      return;
-    }
+    if (decimalCount > 1) return;
     
     const numAmount = parseFloat(cleaned);
     const balance = getWalletBalance();
     
-    // If the entered amount exceeds balance, cap it at balance
     if (!isNaN(numAmount) && numAmount > balance) {
       setAmount(balance.toString());
-      toast.warning(`Amount cannot exceed available balance of ${new Intl.NumberFormat("en-UG", {
-        style: "currency",
-        currency: "UGX",
-      }).format(balance)}`);
+      toast.warning(`Amount cannot exceed available balance of UGX ${balance.toLocaleString()}`);
       return;
     }
     
@@ -105,7 +187,7 @@ const WithdrawModal: React.FC<WithdrawModalProps> = ({
   const validateAmount = (amountValue: string): boolean => {
     const numAmount = parseFloat(amountValue);
     const balance = getWalletBalance();
-    const minWithdrawAmount = 5000;
+    const minWithdrawAmount = 3000;
 
     if (!amountValue || amountValue === '') {
       toast.error('Please enter an amount to withdraw');
@@ -118,22 +200,91 @@ const WithdrawModal: React.FC<WithdrawModalProps> = ({
     }
 
     if (numAmount < minWithdrawAmount) {
-      toast.error(`Minimum withdrawal amount is ${new Intl.NumberFormat("en-UG", {
-        style: "currency",
-        currency: "UGX",
-      }).format(minWithdrawAmount)}`);
+      toast.error(`Minimum withdrawal amount is UGX ${minWithdrawAmount.toLocaleString()}`);
       return false;
     }
 
     if (numAmount > balance) {
-      toast.error(`Amount exceeds available balance. Maximum withdrawal is ${new Intl.NumberFormat("en-UG", {
-        style: "currency",
-        currency: "UGX",
-      }).format(balance)}`);
+      toast.error(`Amount exceeds available balance. Maximum withdrawal is UGX ${balance.toLocaleString()}`);
       return false;
     }
 
     return true;
+  };
+
+  const updateStepStatus = (stepId: string, status: 'pending' | 'processing' | 'completed' | 'failed') => {
+    const stepIndex = statusSteps.findIndex(s => s.id === stepId);
+    if (stepIndex !== -1) {
+      setCurrentStep(stepIndex + 1);
+    }
+  };
+
+  const pollBankTransferStatus = async (reference: string): Promise<void> => {
+    try {
+      const response = await apiRequest<BankTransferStatus>(
+        TransactionEndpoints.checkBankTransferStatus(reference),
+        'GET',
+        ''
+      );
+
+      if (response.status === 'success') {
+        const transferStatus = response.data.bank_transfer_request.status;
+        
+        if (transferStatus === 'completed') {
+          // Stop polling
+          if (pollingInterval) {
+            clearInterval(pollingInterval);
+            setPollingInterval(null);
+          }
+          
+          // Update all steps to completed
+          setCurrentStep(statusSteps.length);
+          toast.success('Withdrawal completed successfully!');
+          
+          // Close modals after 2 seconds
+          setTimeout(() => {
+            setShowStatusModal(false);
+            onSuccess();
+            onClose();
+          }, 2000);
+        } else if (transferStatus === 'failed') {
+          if (pollingInterval) {
+            clearInterval(pollingInterval);
+            setPollingInterval(null);
+          }
+          toast.error('Withdrawal failed. Please contact support.');
+          setTimeout(() => {
+            setShowStatusModal(false);
+          }, 2000);
+        } else if (transferStatus === 'processing') {
+          // Update progress based on provider status
+          if (response.data.bank_transfer_request.provider?.status_code === '122') {
+            updateStepStatus('bank_processing', 'processing');
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error polling bank transfer status:', error);
+    }
+  };
+
+  const startPolling = (reference: string) => {
+    setTransactionReference(reference);
+    setShowStatusModal(true);
+    setCurrentStep(1);
+    
+    // Update steps as they progress
+    setTimeout(() => updateStepStatus('submitted', 'completed'), 1000);
+    setTimeout(() => updateStepStatus('processing', 'processing'), 2000);
+    setTimeout(() => updateStepStatus('processing', 'completed'), 3000);
+    setTimeout(() => updateStepStatus('bank_processing', 'processing'), 4000);
+    
+    // Start polling every 3 seconds
+    const interval = setInterval(() => {
+      pollBankTransferStatus(reference);
+    }, 3000);
+    
+    setPollingInterval(interval);
   };
 
   const handleWithdraw = async () => {
@@ -176,10 +327,18 @@ const WithdrawModal: React.FC<WithdrawModalProps> = ({
         description: description.trim(),
       };
 
-      await apiRequest(TransactionEndpoints.withdrawFromWallet, 'POST', '', payload);
-      toast.info('Withdrawal request is being processed. You will be notified once it is completed.');
-      onSuccess();
-      onClose();
+      const response = await apiRequest(TransactionEndpoints.withdrawFromWallet, 'POST', '', payload);
+
+      if (response.status === 200) {
+        const reference = response.data?.reference || response.data?.data?.reference;
+        if (reference) {
+          startPolling(reference);
+        } else {
+          toast.success('Withdrawal request submitted successfully!');
+          onSuccess();
+          onClose();
+        }
+      }
     } catch (error: any) {
       toast.error(error?.response?.data?.message || 'Failed to process withdrawal');
     } finally {
@@ -187,13 +346,155 @@ const WithdrawModal: React.FC<WithdrawModalProps> = ({
     }
   };
 
-  // Withdrawal type options
+  // Status Modal Component
+// Status Modal Component
+const StatusModal = () => {
+  if (!showStatusModal) return null;
+
+  const selectedChannelData = availableChannels.find(c => c.id.toString() === selectedChannel);
+  const amountNum = parseFloat(amount);
+  const channelName = selectedChannelData?.name || 'Bank Transfer';
+  const allStepsCompleted = currentStep === statusSteps.length;
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center p-4 z-[60]">
+      <div className="bg-white rounded-2xl w-full max-w-md p-6 shadow-2xl animate-in fade-in zoom-in duration-300">
+        {/* Header with animated icon */}
+        <div className="text-center mb-6">
+          <div className="relative inline-block">
+            {allStepsCompleted ? (
+              <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto animate-bounce">
+                <CheckCircle className="h-8 w-8 text-green-600" />
+              </div>
+            ) : (
+              <div className="relative">
+                <div className="w-16 h-16 bg-teal-100 rounded-full flex items-center justify-center mx-auto">
+                  <Banknote className="h-8 w-8 text-teal-600 animate-pulse" />
+                </div>
+                <div className="absolute -bottom-1 -right-1">
+                  <div className="w-4 h-4 bg-teal-500 rounded-full animate-ping"></div>
+                </div>
+              </div>
+            )}
+          </div>
+          <h3 className="text-xl font-bold text-gray-800 mt-3">
+            {allStepsCompleted ? 'Withdrawal Complete!' : 'Processing Withdrawal'}
+          </h3>
+          <p className="text-sm text-gray-500 mt-1">
+            {allStepsCompleted 
+              ? 'Your funds have been transferred successfully'
+              : 'Please wait while we process your request'}
+          </p>
+        </div>
+
+        {/* Amount Display */}
+        <div className="bg-gray-50 rounded-lg p-3 text-center mb-4">
+          <p className="text-xs text-gray-500">Amount</p>
+          <p className="text-2xl font-bold text-teal-600">
+            UGX {amountNum.toLocaleString()}
+          </p>
+        </div>
+
+        {/* Progress Steps */}
+        <div className="space-y-3 mb-6">
+          {statusSteps.map((step, index) => {
+            const isStepActive = index < currentStep;
+            const isCurrentStep = index === currentStep - 1 && !allStepsCompleted;
+            const isStepCompleted = index < currentStep - 1;
+            
+            return (
+              <div key={step.id} className="relative">
+                <div className="flex items-start gap-3">
+                  <div className="relative">
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center transition-all duration-300 ${
+                      isStepCompleted || (isStepActive && !isCurrentStep)
+                        ? 'bg-green-500 text-white'
+                        : isCurrentStep
+                        ? 'bg-teal-500 text-white animate-pulse'
+                        : 'bg-gray-200 text-gray-400'
+                    }`}>
+                      {isStepCompleted || (isStepActive && !isCurrentStep) ? (
+                        <Check className="h-4 w-4" />
+                      ) : (
+                        step.icon
+                      )}
+                    </div>
+                    {index < statusSteps.length - 1 && (
+                      <div className={`absolute top-8 left-4 w-0.5 h-8 transition-all duration-300 ${
+                        index < currentStep - 1 ? 'bg-green-500' : 'bg-gray-200'
+                      }`} />
+                    )}
+                  </div>
+                  <div className="flex-1">
+                    <p className={`font-medium ${
+                      isStepCompleted || isStepActive ? 'text-gray-800' : 'text-gray-400'
+                    }`}>
+                      {step.title}
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      {step.description}
+                    </p>
+                  </div>
+                  {isCurrentStep && (
+                    <Loader2 className="h-4 w-4 animate-spin text-teal-600" />
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Transaction Details */}
+        {transactionReference && (
+          <div className="bg-gray-50 rounded-lg p-3 text-xs space-y-1 mb-4">
+            <div className="flex justify-between">
+              <span className="text-gray-500">Reference:</span>
+              <span className="font-mono text-gray-700">{transactionReference.slice(0, 8)}...</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-500">Channel:</span>
+              <span className="text-gray-700">{channelName}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-500">Description:</span>
+              <span className="text-gray-700">{description}</span>
+            </div>
+          </div>
+        )}
+
+        {/* Progress Bar */}
+        <div className="mb-4">
+          <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+            <div 
+              className="h-full bg-gradient-to-r from-teal-500 to-green-500 rounded-full transition-all duration-500 ease-out"
+              style={{ width: `${(currentStep / statusSteps.length) * 100}%` }}
+            />
+          </div>
+        </div>
+
+        {/* Close Button (only when complete) */}
+        {allStepsCompleted && (
+          <button
+            onClick={() => {
+              setShowStatusModal(false);
+              onSuccess();
+              onClose();
+            }}
+            className="w-full py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors"
+          >
+            Done
+          </button>
+        )}
+      </div>
+    </div>
+  );
+};
+
   const withdrawTypeOptions = [
     { label: 'Mobile Money', value: 'MOBILE_MONEY' },
     { label: 'Bank Transfer', value: 'BANK_TRANSFER' },
   ];
 
-  // Channel options based on selected type
   const channelOptions = availableChannels.map((channel) => ({
     label: channel.type === 'MOBILE_MONEY' 
       ? `${channel.name} (${channel.phoneNumber})`
@@ -202,223 +503,175 @@ const WithdrawModal: React.FC<WithdrawModalProps> = ({
   }));
 
   const balance = getWalletBalance();
-  const minWithdrawAmount = 5000;
+  const minWithdrawAmount = 3000;
   const maxWithdrawAmount = balance;
 
   if (!visible || !wallet) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-xl w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto">
-        <h3 className="text-xl font-semibold text-gray-800 mb-2">
-          Withdraw from {wallet.name}
-        </h3>
-        <p className="text-sm text-gray-600 mb-6">
-          Available Balance: {new Intl.NumberFormat("en-UG", {
-            style: "currency",
-            currency: "UGX",
-          }).format(balance)}
-        </p>
+    <>
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+        <div className="bg-white rounded-xl w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto">
+          <h3 className="text-xl font-semibold text-gray-800 mb-2">
+            Withdraw from {wallet.name}
+          </h3>
+          <p className="text-sm text-gray-600 mb-6">
+            Available Balance: UGX {balance.toLocaleString()}
+          </p>
 
-        <div className="space-y-4">
-          {/* Withdrawal Type */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Withdrawal Type *
-            </label>
-            <CustomDropdown
-              options={withdrawTypeOptions}
-              value={withdrawType ? [withdrawType] : []}
-              onChange={(values: string[]) => setWithdrawType(values[0] as WithdrawType)}
-              placeholder="Select withdrawal type"
-              singleSelect={true}
-            />
-          </div>
-
-          {/* Channel Selection */}
-          {withdrawType && (
+          <div className="space-y-4">
+            {/* Withdrawal Type */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                {withdrawType === 'MOBILE_MONEY' ? 'Mobile Money Channel *' : 'Bank Account *'}
+                Withdrawal Type *
               </label>
               <CustomDropdown
-                options={channelOptions}
-                value={selectedChannel ? [selectedChannel] : []}
-                onChange={(values: string[]) => setSelectedChannel(values[0] || '')}
-                placeholder={
-                  availableChannels.length === 0 
-                    ? `No verified ${withdrawType === 'MOBILE_MONEY' ? 'mobile money' : 'bank'} channels available` 
-                    : `Select ${withdrawType === 'MOBILE_MONEY' ? 'mobile money channel' : 'bank account'}`
-                }
+                options={withdrawTypeOptions}
+                value={withdrawType ? [withdrawType] : []}
+                onChange={(values: string[]) => setWithdrawType(values[0] as WithdrawType)}
+                placeholder="Select withdrawal type"
                 singleSelect={true}
-                disabled={availableChannels.length === 0}
               />
-              {availableChannels.length === 0 && withdrawType && (
-                <p className="text-xs text-red-500 mt-1">
-                  No verified {withdrawType === 'MOBILE_MONEY' ? 'mobile money channels' : 'bank accounts'} found. 
-                  Please add and verify a channel first.
-                </p>
-              )}
             </div>
-          )}
 
-          {/* Amount */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Amount (UGX) *
-            </label>
-            <CustomTextInput
-              type="number"
-              value={amount}
-              onChange={handleAmountChange}
-              placeholder={`Enter amount (Min: ${new Intl.NumberFormat("en-UG", {
-                style: "currency",
-                currency: "UGX",
-              }).format(minWithdrawAmount)}, Max: ${new Intl.NumberFormat("en-UG", {
-                style: "currency",
-                currency: "UGX",
-              }).format(maxWithdrawAmount)})`}
-              min={minWithdrawAmount}
-              max={maxWithdrawAmount}
-              step="1000"
-            />
-            <div className="flex justify-between items-center mt-1">
-              <p className="text-xs text-gray-500">
-                Minimum: {new Intl.NumberFormat("en-UG", {
-                  style: "currency",
-                  currency: "UGX",
-                }).format(minWithdrawAmount)}
-              </p>
-              <p className="text-xs text-gray-500">
-                Maximum: {new Intl.NumberFormat("en-UG", {
-                  style: "currency",
-                  currency: "UGX",
-                }).format(maxWithdrawAmount)}
-              </p>
-            </div>
-            {parseFloat(amount) > balance && (
-              <p className="text-xs text-red-500 mt-1">
-                Amount cannot exceed available balance of {new Intl.NumberFormat("en-UG", {
-                  style: "currency",
-                  currency: "UGX",
-                }).format(balance)}
-              </p>
-            )}
-            {parseFloat(amount) < minWithdrawAmount && amount && (
-              <p className="text-xs text-red-500 mt-1">
-                Amount below minimum withdrawal limit
-              </p>
-            )}
-          </div>
-
-          {/* Description - New Field */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Description *
-            </label>
-            <CustomTextInput
-              type="text"
-              value={description}
-              onChange={(val) => setDescription(val)}
-              placeholder="Enter reason for withdrawal (e.g., Staff salaries, Operational costs, etc.)"
-            />
-            <p className="text-xs text-gray-500 mt-1">
-              Provide a clear description for this withdrawal request
-            </p>
-          </div>
-
-          {/* Quick Amount Buttons */}
-          {balance > 0 && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Quick Select Amount
-              </label>
-              <div className="flex gap-2 flex-wrap">
-                {[5000, 10000, 20000, 50000, 100000, 200000].map((amt) => (
-                  amt <= balance && (
-                    <button
-                      key={amt}
-                      type="button"
-                      onClick={() => setAmount(amt.toString())}
-                      className="px-3 py-1 text-sm bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
-                    >
-                      {new Intl.NumberFormat("en-UG", {
-                        style: "currency",
-                        currency: "UGX",
-                      }).format(amt)}
-                    </button>
-                  )
-                ))}
-                {balance > 200000 && (
-                  <button
-                    type="button"
-                    onClick={() => setAmount(balance.toString())}
-                    className="px-3 py-1 text-sm bg-yellow-100 hover:bg-yellow-200 text-yellow-800 rounded-lg transition-colors"
-                  >
-                    Max ({new Intl.NumberFormat("en-UG", {
-                      style: "currency",
-                      currency: "UGX",
-                    }).format(balance)})
-                  </button>
+            {/* Channel Selection */}
+            {withdrawType && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  {withdrawType === 'MOBILE_MONEY' ? 'Mobile Money Channel *' : 'Bank Account *'}
+                </label>
+                <CustomDropdown
+                  options={channelOptions}
+                  value={selectedChannel ? [selectedChannel] : []}
+                  onChange={(values: string[]) => setSelectedChannel(values[0] || '')}
+                  placeholder={
+                    availableChannels.length === 0 
+                      ? `No verified ${withdrawType === 'MOBILE_MONEY' ? 'mobile money' : 'bank'} channels available` 
+                      : `Select ${withdrawType === 'MOBILE_MONEY' ? 'mobile money channel' : 'bank account'}`
+                  }
+                  singleSelect={true}
+                  disabled={availableChannels.length === 0}
+                />
+                {availableChannels.length === 0 && withdrawType && (
+                  <p className="text-xs text-red-500 mt-1">
+                    No verified {withdrawType === 'MOBILE_MONEY' ? 'mobile money channels' : 'bank accounts'} found. 
+                    Please add and verify a channel first.
+                  </p>
                 )}
               </div>
-            </div>
-          )}
+            )}
 
-          {/* Summary Section */}
-          {withdrawType && selectedChannel && amount && parseFloat(amount) > 0 && description && (
-            <div className="bg-gray-50 rounded-lg p-4 mt-4">
-              <h4 className="text-sm font-medium text-gray-700 mb-2">Withdrawal Summary</h4>
-              <div className="space-y-1 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Wallet:</span>
-                  <span className="font-medium">{wallet.name}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Amount:</span>
-                  <span className="font-medium text-yellow-600">
-                    {new Intl.NumberFormat("en-UG", {
-                      style: "currency",
-                      currency: "UGX",
-                    }).format(parseFloat(amount))}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Channel:</span>
-                  <span className="font-medium">
-                    {availableChannels.find(c => c.id.toString() === selectedChannel)?.name}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Description:</span>
-                  <span className="font-medium">{description}</span>
-                </div>
-                <div className="flex justify-between pt-2 border-t border-gray-200">
-                  <span className="text-gray-600">Remaining Balance:</span>
-                  <span className="font-medium text-green-600">
-                    {new Intl.NumberFormat("en-UG", {
-                      style: "currency",
-                      currency: "UGX",
-                    }).format(balance - parseFloat(amount))}
-                  </span>
-                </div>
+            {/* Amount */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Amount (UGX) *
+              </label>
+              <CustomTextInput
+                type="number"
+                value={amount}
+                onChange={handleAmountChange}
+                placeholder={`Enter amount (Min: UGX ${minWithdrawAmount.toLocaleString()}, Max: UGX ${maxWithdrawAmount.toLocaleString()})`}
+                min={minWithdrawAmount}
+                max={maxWithdrawAmount}
+                step="1000"
+              />
+              <div className="flex justify-between items-center mt-1">
+                <p className="text-xs text-gray-500">Minimum: UGX {minWithdrawAmount.toLocaleString()}</p>
+                <p className="text-xs text-gray-500">Maximum: UGX {maxWithdrawAmount.toLocaleString()}</p>
               </div>
             </div>
-          )}
 
-          <div className="flex justify-end space-x-3 mt-6 pt-4 border-t border-gray-200">
-            <CustomButton type="negative" fn={onClose} label="Cancel" />
-            <CustomButton
-              type="positive"
-              label="Withdraw"
-              fn={handleWithdraw}
-              isLoading={isLoading}
-              disabled={isLoading || !withdrawType || !selectedChannel || !amount || !description}
-            />
+            {/* Description */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Description *
+              </label>
+              <CustomTextInput
+                type="text"
+                value={description}
+                onChange={(val) => setDescription(val)}
+                placeholder="Enter reason for withdrawal (e.g., Staff salaries, Operational costs, etc.)"
+              />
+            </div>
+
+            {/* Quick Amount Buttons */}
+            {balance > 0 && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Quick Select Amount
+                </label>
+                <div className="flex gap-2 flex-wrap">
+                  {[5000, 10000, 20000, 50000, 100000, 200000].map((amt) => (
+                    amt <= balance && (
+                      <button
+                        key={amt}
+                        type="button"
+                        onClick={() => setAmount(amt.toString())}
+                        className="px-3 py-1 text-sm bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                      >
+                        UGX {amt.toLocaleString()}
+                      </button>
+                    )
+                  ))}
+                  {balance > 200000 && (
+                    <button
+                      type="button"
+                      onClick={() => setAmount(balance.toString())}
+                      className="px-3 py-1 text-sm bg-yellow-100 hover:bg-yellow-200 text-yellow-800 rounded-lg transition-colors"
+                    >
+                      Max (UGX {balance.toLocaleString()})
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Summary Section */}
+            {withdrawType && selectedChannel && amount && parseFloat(amount) > 0 && description && (
+              <div className="bg-gray-50 rounded-lg p-4 mt-4">
+                <h4 className="text-sm font-medium text-gray-700 mb-2">Withdrawal Summary</h4>
+                <div className="space-y-1 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Wallet:</span>
+                    <span className="font-medium">{wallet.name}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Amount:</span>
+                    <span className="font-medium text-yellow-600">UGX {parseFloat(amount).toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Channel:</span>
+                    <span className="font-medium">{availableChannels.find(c => c.id.toString() === selectedChannel)?.name}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Description:</span>
+                    <span className="font-medium">{description}</span>
+                  </div>
+                  <div className="flex justify-between pt-2 border-t border-gray-200">
+                    <span className="text-gray-600">Remaining Balance:</span>
+                    <span className="font-medium text-green-600">UGX {(balance - parseFloat(amount)).toLocaleString()}</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div className="flex justify-end space-x-3 mt-6 pt-4 border-t border-gray-200">
+              <CustomButton type="negative" fn={onClose} label="Cancel" />
+              <CustomButton
+                type="positive"
+                label="Withdraw"
+                fn={handleWithdraw}
+                isLoading={isLoading}
+                disabled={isLoading || !withdrawType || !selectedChannel || !amount || !description}
+              />
+            </div>
           </div>
         </div>
       </div>
-    </div>
+
+      {/* Status Modal */}
+      <StatusModal />
+    </>
   );
 };
 

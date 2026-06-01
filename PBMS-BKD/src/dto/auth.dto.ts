@@ -15,7 +15,9 @@ export class AuthDto {
 
   rememberMe?: boolean;
 }
-
+export class PinLoginDto { 
+  pin!: string;
+}
 export class ResetPasswordDto {
   @IsEmail()
   @IsNotEmpty()

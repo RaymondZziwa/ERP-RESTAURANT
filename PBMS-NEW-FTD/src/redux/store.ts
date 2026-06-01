@@ -47,6 +47,11 @@ import ManufacturingReducer from './slices/manufacturing/manufacturingSlice';
 import channelReducer from './slices/finance/channelSlice';
 import supportedBanksReducer from './slices/finance/supportedBanksSlice';
 import walletReducer from './slices/finance/walletSlice';
+import transactionReducer from './slices/finance/transactionSlice';
+import billingChannelReducer from './slices/settings/billingChannelSlice';
+import tableReducer from './slices/sales/tableSlice';
+import orderHistoryReducer from './slices/sales/orderHistorySlice';
+import pendingOrdersReducer from './slices/sales/pendingOrdersSlice';
 
 // Persist config for userAuth
 const userAuthPersistConfig = {
@@ -59,6 +64,7 @@ const persistedUserAuthReducer = persistReducer(userAuthPersistConfig, UserAuthR
 
 export const store = configureStore({
   reducer: {
+    table: tableReducer,
     seedlingStage: seedlingStageReducer,
     seedlingBatch: seedlingBatchReducer,
     seedlingDeath: seedlingDeathReducer,
@@ -96,6 +102,10 @@ export const store = configureStore({
     channel: channelReducer,
     supportedBanks: supportedBanksReducer,
     wallet: walletReducer,
+    transaction: transactionReducer,
+    billingChannel: billingChannelReducer,
+    orderHistory: orderHistoryReducer,
+    pendingOrders: pendingOrdersReducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({

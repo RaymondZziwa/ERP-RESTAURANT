@@ -369,7 +369,7 @@ const AddorModifyEmployee: React.FC<AddorModifyEmployeeProps> = ({
                   />
                   <span className="text-sm text-gray-700">Has System Access</span>
                 </label>
-                <label className="flex items-center">
+                {/* <label className="flex items-center">
                   <input
                     type="checkbox"
                     checked={formData.hasPrescriptionAccess}
@@ -377,7 +377,7 @@ const AddorModifyEmployee: React.FC<AddorModifyEmployeeProps> = ({
                     className="mr-2"
                   />
                   <span className="text-sm text-gray-700">Has Prescription Database Access</span>
-                </label>
+                </label> */}
 
                 <label className="flex items-center">
                   <input
