@@ -518,6 +518,9 @@ export class MealSalesService {
         table: true,
         SalePayments: true,
       },
+      orderBy: {
+        createdAt: 'desc',
+      },
     });
 
     return {
