@@ -6,6 +6,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { useRestaurant } from "@/lib/restaurant-store";
+import useTables from "@/hooks/sales/useTables";
 
 interface Props {
   open: boolean;
@@ -14,9 +15,10 @@ interface Props {
 }
 
 export function SelectTableDialog({ open, onOpenChange, onSelect }: Props) {
-  const { tables, bills, employeeId } = useRestaurant();
+  const { data: tables } = useTables();
+  const { bills, employeeId } = useRestaurant();
   const eligible = tables.filter((t) => {
-    if (t.status === "FREE") return true;
+    if (t.status === "AVAILABLE") return true;
     const bill = bills.find((b) => b.id === t.currentBillId);
     return bill && bill.employeeId === employeeId && bill.status === "PENDING";
   });
@@ -31,7 +33,7 @@ export function SelectTableDialog({ open, onOpenChange, onSelect }: Props) {
           {eligible.map((t) => (
             <Button
               key={t.id}
-              variant={t.status === "FREE" ? "outline" : "secondary"}
+              variant={t.status === "AVAILABLE" ? "outline" : "secondary"}
               className="h-16 flex-col gap-0.5"
               onClick={() => {
                 onSelect(t.id);
@@ -40,7 +42,7 @@ export function SelectTableDialog({ open, onOpenChange, onSelect }: Props) {
             >
               <span className="text-lg font-bold">{t.number}</span>
               <span className="text-[10px] text-muted-foreground">
-                {t.status === "FREE" ? "FREE" : "YOURS"}
+                {t.status === "AVAILABLE" ? "AVAILABLE" : "YOURS"}
               </span>
             </Button>
           ))}

@@ -1,12 +1,10 @@
 import axios, { type AxiosRequestConfig, type AxiosResponse } from "axios";
 import { toast } from "sonner";
 
-export const baseURL = "http://localhost:3500";
-export const imageURL = "http://localhost:3500/storage";
-// export const baseURL = "https://pbmsapi.megaerpug.com"
-// export const imageURL = "https://pbmsapi.megaerpug.com/storage"
-export const legacyBaseURL = "https://pbmslegacyapi.megaerpug.com";
-export const system = "PBMS";
+// export const baseURL = "http://localhost:3500";
+// export const imageURL = "http://localhost:3500/storage";
+export const baseURL = "https://restone.megaerpug.com"
+export const imageURL = "https://restone.megaerpug.com/storage"
 
 let isRefreshing = false;
 type FailedQueueItem = {

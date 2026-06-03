@@ -213,11 +213,11 @@ export function OrderDialog({
                         .map((m) => (
                           <Card
                             key={m.id}
-                            className="cursor-pointer p-4 transition-all hover:border-primary hover:shadow-md active:scale-95"
+                            className="cursor-pointer p-4 transition-all hover:border-primary/50 hover:bg-primary/5 hover:shadow-sm active:scale-95"
                             onClick={() => add(m.id)}
                           >
-                            <div className="text-base font-medium">{m.name}</div>
-                            <div className="text-sm text-muted-foreground">
+                            <div className="text-base font-medium text-foreground">{m.name}</div>
+                            <div className="text-sm text-primary/70">
                               UGX {Number(m.price).toLocaleString()}
                             </div>
                           </Card>
@@ -235,7 +235,7 @@ export function OrderDialog({
           </div>
 
           {/* Order Summary Section - Fixed width on desktop */}
-          <div className="flex max-h-[40vh] min-h-0 flex-col border-t bg-muted/30 lg:max-h-none lg:w-96 lg:border-l lg:border-t-0">
+          <div className="flex max-h-[40vh] min-h-0 flex-col border-t bg-muted/20 lg:max-h-none lg:w-96 lg:border-l lg:border-t-0">
             <div className="flex items-center justify-between border-b p-4">
               <span className="text-lg font-semibold">Current Order</span>
               {items.length > 0 && (
@@ -243,7 +243,7 @@ export function OrderDialog({
                   variant="ghost"
                   size="sm"
                   onClick={clearOrder}
-                  className="text-sm text-destructive"
+                  className="text-sm text-destructive/70 hover:text-destructive"
                 >
                   Clear All
                 </Button>
@@ -263,11 +263,11 @@ export function OrderDialog({
                   {items.map((it) => (
                     <li
                       key={it.menuItemId}
-                      className="flex items-center gap-3 rounded-lg bg-background p-3 text-sm animate-in fade-in slide-in-from-right-2 shadow-sm"
+                      className="flex items-center gap-3 rounded-lg bg-background p-3 text-sm shadow-sm transition-all hover:shadow-md animate-in fade-in slide-in-from-right-2"
                     >
                       <div className="flex-1">
                         <div className="font-medium">{it.name}</div>
-                        <div className="text-xs text-muted-foreground">
+                        <div className="text-xs text-primary/60">
                           UGX {it.price.toLocaleString()}
                         </div>
                       </div>
@@ -296,7 +296,7 @@ export function OrderDialog({
                         <Button
                           size="icon"
                           variant="ghost"
-                          className="h-8 w-8 text-destructive"
+                          className="h-8 w-8 text-destructive/70 hover:text-destructive"
                           onClick={() => remove(it.menuItemId)}
                           disabled={isSubmitting}
                         >
@@ -315,7 +315,7 @@ export function OrderDialog({
                 htmlFor="order-notes"
                 className="mb-2 flex items-center gap-1 text-sm font-medium"
               >
-                <NotebookPen className="h-4 w-4" />
+                <NotebookPen className="h-4 w-4 text-muted-foreground" />
                 Order Notes (Optional)
               </Label>
               <Textarea
